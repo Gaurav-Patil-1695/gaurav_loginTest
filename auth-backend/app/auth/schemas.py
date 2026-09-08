@@ -1,11 +1,30 @@
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Optional
-from uuid import UUID
+from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
-# --- Login ---
+# ---------------------------------------------------------------------------
+# Register
+# ---------------------------------------------------------------------------
+
+class RegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=1)
+    email: EmailStr
+    password: str
+    confirm_password: str
+
+
+class RegisterResponse(BaseModel):
+    message: str
+    user_id: str
+
+
+# ---------------------------------------------------------------------------
+# Login
+# ---------------------------------------------------------------------------
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -16,26 +35,12 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str
+    expires_in: int
 
 
-# --- Register ---
-
-class RegisterRequest(BaseModel):
-    full_name: str
-    email: EmailStr
-    password: str
-    confirm_password: str
-
-
-class RegisterResponse(BaseModel):
-    id: UUID
-    full_name: str
-    email: EmailStr
-    is_active: bool
-    created_at: datetime
-
-
-# --- Forgot Password ---
+# ---------------------------------------------------------------------------
+# Forgot Password
+# ---------------------------------------------------------------------------
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -45,7 +50,9 @@ class ForgotPasswordResponse(BaseModel):
     message: str
 
 
-# --- Reset Password ---
+# ---------------------------------------------------------------------------
+# Reset Password
+# ---------------------------------------------------------------------------
 
 class ResetPasswordRequest(BaseModel):
     token: str
@@ -57,18 +64,21 @@ class ResetPasswordResponse(BaseModel):
     message: str
 
 
-# --- Me ---
+# ---------------------------------------------------------------------------
+# Me
+# ---------------------------------------------------------------------------
 
 class MeResponse(BaseModel):
-    id: UUID
+    id: str
     full_name: str
-    email: EmailStr
+    email: str
     is_active: bool
     created_at: datetime
-    updated_at: datetime
 
 
-# --- Logout ---
+# ---------------------------------------------------------------------------
+# Logout
+# ---------------------------------------------------------------------------
 
 class LogoutRequest(BaseModel):
     refresh_token: Optional[str] = None
@@ -78,7 +88,9 @@ class LogoutResponse(BaseModel):
     message: str
 
 
-# --- Refresh ---
+# ---------------------------------------------------------------------------
+# Refresh
+# ---------------------------------------------------------------------------
 
 class RefreshRequest(BaseModel):
     refresh_token: Optional[str] = None
@@ -87,15 +99,23 @@ class RefreshRequest(BaseModel):
 class RefreshResponse(BaseModel):
     access_token: str
     token_type: str
+    expires_in: int
 
 
-# --- Error ---
+# ---------------------------------------------------------------------------
+# Error envelope
+# ---------------------------------------------------------------------------
 
 class ErrorDetail(BaseModel):
+    field: str
+    message: str
+
+
+class ErrorBody(BaseModel):
     code: str
     message: str
-    details: dict
+    details: List[ErrorDetail] = []
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorDetail
+    error: ErrorBody
