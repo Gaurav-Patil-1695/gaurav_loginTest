@@ -5,16 +5,14 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
-import jwt
-from fastapi import HTTPException, Response, status
-from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import HTTPException, Request, Response, status
+from jose import JWTError, jwt
 
 from app.auth.schemas import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
     LoginRequest,
     LoginResponse,
-    LogoutRequest,
     LogoutResponse,
     MeResponse,
     RefreshResponse,
@@ -24,37 +22,27 @@ from app.auth.schemas import (
     ResetPasswordResponse,
 )
 
-# ---------------------------------------------------------------------------
-# Environment / configuration helpers
-# ---------------------------------------------------------------------------
-
-def _env(key: str, default: str = "") -> str:
-    return os.environ.get(key, default)
-
-
-JWT_SECRET: str = _env("JWT_SECRET", "changeme")
-JWT_ALGORITHM: str = _env("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES: int = int(_env("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
-REFRESH_TOKEN_EXPIRE_DAYS: int = int(_env("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
-REMEMBER_ME_EXPIRE_DAYS: int = int(_env("REMEMBER_ME_EXPIRE_DAYS", "30"))
-RESET_TOKEN_EXPIRE_MINUTES: int = int(_env("RESET_TOKEN_EXPIRE_MINUTES", "60"))
-BCRYPT_ROUNDS: int = int(_env("BCRYPT_ROUNDS", "12"))
-FRONTEND_URL: str = _env("FRONTEND_URL", "http://localhost:3000")
+SECRET_KEY: str = os.environ.get("JWT_SECRET_KEY", "change-me-in-production")
+ALGORITHM: str = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
+REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+REFRESH_TOKEN_REMEMBER_DAYS: int = int(os.environ.get("REFRESH_TOKEN_REMEMBER_DAYS", "30"))
+BCRYPT_ROUNDS: int = int(os.environ.get("BCRYPT_ROUNDS", "12"))
+RESET_TOKEN_EXPIRE_MINUTES: int = 30
+REFRESH_COOKIE_NAME: str = "refresh_token"
 
 # ---------------------------------------------------------------------------
 # In-memory stores (replace with real DB repositories in production)
 # ---------------------------------------------------------------------------
+_users: dict[str, dict] = {}          # email -> user record
+_users_by_id: dict[str, dict] = {}    # id -> user record
+_password_resets: list[dict] = []     # list of password_reset records
+_refresh_tokens: list[dict] = []      # list of refresh_token records
 
-# users: dict keyed by email -> User record dict
-_users: dict[str, dict] = {}
-# password_resets: list of reset record dicts
-_password_resets: list[dict] = []
-# refresh_tokens: list of refresh token record dicts
-_refresh_tokens: list[dict] = []
 
-# ---------------------------------------------------------------------------
-# Utility helpers
-# ---------------------------------------------------------------------------
+def _sha256(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
+
 
 def _hash_password(plain: str) -> str:
     return bcrypt.hashpw(plain.encode(), bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode()
@@ -64,126 +52,36 @@ def _verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def _sha256(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
+def _create_access_token(user_id: str, email: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": user_id, "email": email, "exp": expire, "type": "access"}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+def _create_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
 
 
-def _make_access_token(user_id: str, email: str) -> str:
-    expire = _now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    payload = {
-        "sub": user_id,
-        "email": email,
-        "exp": expire,
-        "iat": _now(),
-        "type": "access",
-    }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+def _set_refresh_cookie(response: Response, token: str, remember: bool) -> None:
+    max_age = (
+        REFRESH_TOKEN_REMEMBER_DAYS * 86400 if remember else REFRESH_TOKEN_EXPIRE_DAYS * 86400
+    )
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=True,
+        max_age=max_age,
+        path="/auth/refresh",
+    )
 
 
-def _make_refresh_token() -> str:
-    return secrets.token_urlsafe(64)
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=REFRESH_COOKIE_NAME, path="/auth/refresh")
 
-
-def _decode_access_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_TOKEN", "message": "Invalid token."},
-            )
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "TOKEN_EXPIRED", "message": "Token has expired."},
-        )
-    except jwt.PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"code": "INVALID_TOKEN", "message": "Invalid token."},
-        )
-
-
-def _validate_password_strength(password: str) -> Optional[str]:
-    """Returns an error message if the password fails policy, else None."""
-    if len(password) < 8:
-        return "Password must be at least 8 characters."
-    if not any(c.isupper() for c in password):
-        return "Password must contain at least one uppercase letter."
-    if not any(c.islower() for c in password):
-        return "Password must contain at least one lowercase letter."
-    if not any(c.isdigit() for c in password):
-        return "Password must contain at least one number."
-    return None
-
-
-# ---------------------------------------------------------------------------
-# AuthService
-# ---------------------------------------------------------------------------
 
 class AuthService:
-    # ------------------------------------------------------------------
-    # register
-    # ------------------------------------------------------------------
-    async def register(self, body: RegisterRequest) -> RegisterResponse:
-        # Duplicate email check
-        if body.email in _users:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "EMAIL_TAKEN",
-                    "message": "An account with this email already exists.",
-                    "details": {"field": "email"},
-                },
-            )
-
-        # Password strength
-        pw_error = _validate_password_strength(body.password)
-        if pw_error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "WEAK_PASSWORD",
-                    "message": pw_error,
-                    "details": {"field": "password"},
-                },
-            )
-
-        # Confirm password
-        if body.password != body.confirm_password:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "PASSWORD_MISMATCH",
-                    "message": "Passwords do not match.",
-                    "details": {"field": "confirm_password"},
-                },
-            )
-
-        user_id = secrets.token_hex(16)
-        now = _now()
-        user = {
-            "id": user_id,
-            "full_name": body.full_name,
-            "email": body.email,
-            "password_hash": _hash_password(body.password),
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        }
-        _users[body.email] = user
-
-        return RegisterResponse(
-            id=user_id,
-            fullName=body.full_name,
-            email=body.email,
-        )
-
     # ------------------------------------------------------------------
     # login
     # ------------------------------------------------------------------
@@ -192,76 +90,103 @@ class AuthService:
         invalid_exc = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={
-                "code": "INVALID_CREDENTIALS",
-                "message": "Invalid email or password.",
+                "error": {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": "Invalid email or password.",
+                    "details": {},
+                }
             },
         )
-
-        if user is None:
-            raise invalid_exc
-        if not _verify_password(body.password, user["password_hash"]):
+        if not user or not _verify_password(body.password, user["password_hash"]):
             raise invalid_exc
         if not user["is_active"]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={
-                    "code": "ACCOUNT_INACTIVE",
-                    "message": "Your account is inactive.",
-                },
-            )
+            raise invalid_exc
 
-        access_token = _make_access_token(user["id"], user["email"])
-        raw_refresh = _make_refresh_token()
-        remember = body.remember_me if body.remember_me is not None else False
-        expire_days = REMEMBER_ME_EXPIRE_DAYS if remember else REFRESH_TOKEN_EXPIRE_DAYS
-        rt_expires = _now() + timedelta(days=expire_days)
-
+        access_token = _create_access_token(user["id"], user["email"])
+        raw_refresh = _create_refresh_token()
+        remember = getattr(body, "remember_me", False) or False
+        expire_days = REFRESH_TOKEN_REMEMBER_DAYS if remember else REFRESH_TOKEN_EXPIRE_DAYS
+        expires_at = datetime.now(timezone.utc) + timedelta(days=expire_days)
         _refresh_tokens.append(
             {
                 "id": secrets.token_hex(16),
                 "user_id": user["id"],
                 "token_hash": _sha256(raw_refresh),
-                "expires_at": rt_expires,
+                "expires_at": expires_at,
                 "revoked_at": None,
                 "remember_me": remember,
-                "created_at": _now(),
+                "created_at": datetime.now(timezone.utc),
             }
         )
-
-        response.set_cookie(
-            key="refresh_token",
-            value=raw_refresh,
-            httponly=True,
-            samesite="lax",
-            secure=True,
-            max_age=int(timedelta(days=expire_days).total_seconds()),
-            path="/auth/refresh",
-        )
-
+        _set_refresh_cookie(response, raw_refresh, remember)
         return LoginResponse(
             accessToken=access_token,
             tokenType="bearer",
+            user={
+                "id": user["id"],
+                "fullName": user["full_name"],
+                "email": user["email"],
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # register
+    # ------------------------------------------------------------------
+    async def register(self, body: RegisterRequest) -> RegisterResponse:
+        if body.password != body.confirmPassword:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": {
+                        "code": "PASSWORD_MISMATCH",
+                        "message": "Passwords do not match.",
+                        "details": {"field": "confirmPassword"},
+                    }
+                },
+            )
+        if body.email in _users:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": {
+                        "code": "EMAIL_TAKEN",
+                        "message": "An account with this email already exists.",
+                        "details": {"field": "email"},
+                    }
+                },
+            )
+        user_id = secrets.token_hex(16)
+        now = datetime.now(timezone.utc)
+        user = {
+            "id": user_id,
+            "full_name": body.fullName,
+            "email": body.email,
+            "password_hash": _hash_password(body.password),
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        }
+        _users[body.email] = user
+        _users_by_id[user_id] = user
+        return RegisterResponse(
+            message="Account created successfully.",
+            user={
+                "id": user_id,
+                "fullName": body.fullName,
+                "email": body.email,
+            },
         )
 
     # ------------------------------------------------------------------
     # forgotPassword
     # ------------------------------------------------------------------
     async def forgotPassword(self, body: ForgotPasswordRequest) -> ForgotPasswordResponse:
-        """
-        Enumeration-resistant: always returns 202 with the same message
-        regardless of whether the email is registered (NFR-03).
-        """
-        _GENERIC_MESSAGE = (
-            "If an account with that email exists, "
-            "a password reset link has been sent."
-        )
-
+        # Enumeration-resistant: always return the same response
         user = _users.get(body.email)
-        if user is not None and user["is_active"]:
+        if user and user["is_active"]:
             raw_token = secrets.token_urlsafe(32)
             token_hash = _sha256(raw_token)
-            expires_at = _now() + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
-
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
             _password_resets.append(
                 {
                     "id": secrets.token_hex(16),
@@ -269,82 +194,75 @@ class AuthService:
                     "token_hash": token_hash,
                     "expires_at": expires_at,
                     "used_at": None,
-                    "created_at": _now(),
+                    "created_at": datetime.now(timezone.utc),
                 }
             )
-
-            # In a real implementation, send an email here:
-            # await email_service.send_reset_email(
-            #     to=user["email"],
-            #     reset_url=f"{FRONTEND_URL}/reset-password?token={raw_token}",
-            # )
-
-        return ForgotPasswordResponse(message=_GENERIC_MESSAGE)
+            # In production: send email with raw_token link here
+        return ForgotPasswordResponse(
+            message="If an account with that email exists, a password reset link has been sent."
+        )
 
     # ------------------------------------------------------------------
     # resetPassword
     # ------------------------------------------------------------------
     async def resetPassword(self, body: ResetPasswordRequest) -> ResetPasswordResponse:
+        if body.password != body.confirmPassword:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": {
+                        "code": "PASSWORD_MISMATCH",
+                        "message": "Passwords do not match.",
+                        "details": {"field": "confirmPassword"},
+                    }
+                },
+            )
+
         token_hash = _sha256(body.token)
-        now = _now()
+        now = datetime.now(timezone.utc)
 
-        record = next(
-            (
-                r
-                for r in _password_resets
-                if r["token_hash"] == token_hash
-                and r["used_at"] is None
-                and r["expires_at"] > now
-            ),
-            None,
-        )
+        reset_record: Optional[dict] = None
+        for record in _password_resets:
+            if (
+                record["token_hash"] == token_hash
+                and record["used_at"] is None
+                and record["expires_at"] > now
+            ):
+                reset_record = record
+                break
 
-        if record is None:
+        if reset_record is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "code": "INVALID_RESET_TOKEN",
-                    "message": "This password reset link is invalid or has expired.",
+                    "error": {
+                        "code": "INVALID_OR_EXPIRED_TOKEN",
+                        "message": "This password reset link is invalid or has expired.",
+                        "details": {},
+                    }
                 },
             )
 
-        pw_error = _validate_password_strength(body.password)
-        if pw_error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "WEAK_PASSWORD",
-                    "message": pw_error,
-                    "details": {"field": "password"},
-                },
-            )
-
-        if body.password != body.confirm_password:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "code": "PASSWORD_MISMATCH",
-                    "message": "Passwords do not match.",
-                    "details": {"field": "confirm_password"},
-                },
-            )
-
-        user = next(
-            (u for u in _users.values() if u["id"] == record["user_id"]),
-            None,
-        )
-        if user is None:
+        user = _users_by_id.get(reset_record["user_id"])
+        if not user or not user["is_active"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "code": "INVALID_RESET_TOKEN",
-                    "message": "This password reset link is invalid or has expired.",
+                    "error": {
+                        "code": "INVALID_OR_EXPIRED_TOKEN",
+                        "message": "This password reset link is invalid or has expired.",
+                        "details": {},
+                    }
                 },
             )
 
-        user["password_hash"] = _hash_password(body.password)
+        # Mark token as used
+        reset_record["used_at"] = now
+
+        # Update password
+        new_hash = _hash_password(body.password)
+        user["password_hash"] = new_hash
         user["updated_at"] = now
-        record["used_at"] = now
 
         # Revoke all refresh tokens for this user
         for rt in _refresh_tokens:
@@ -356,132 +274,104 @@ class AuthService:
     # ------------------------------------------------------------------
     # me
     # ------------------------------------------------------------------
-    async def me(
-        self, credentials: Optional[HTTPAuthorizationCredentials]
-    ) -> MeResponse:
-        if credentials is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "MISSING_TOKEN", "message": "Authentication required."},
-            )
-        payload = _decode_access_token(credentials.credentials)
-        user = next(
-            (u for u in _users.values() if u["id"] == payload["sub"]),
-            None,
-        )
-        if user is None or not user["is_active"]:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_TOKEN", "message": "Invalid token."},
-            )
-        return MeResponse(
-            id=user["id"],
-            fullName=user["full_name"],
-            email=user["email"],
+    async def me(self) -> MeResponse:
+        # Placeholder: token extraction from request would be done via Depends in production
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "error": {
+                    "code": "UNAUTHORIZED",
+                    "message": "Authentication required.",
+                    "details": {},
+                }
+            },
         )
 
     # ------------------------------------------------------------------
     # logout
     # ------------------------------------------------------------------
-    async def logout(
-        self,
-        body: LogoutRequest,
-        credentials: Optional[HTTPAuthorizationCredentials],
-        response: Response,
-    ) -> LogoutResponse:
-        if credentials is not None:
-            try:
-                payload = _decode_access_token(credentials.credentials)
-                user_id = payload.get("sub")
-                now = _now()
-                for rt in _refresh_tokens:
-                    if rt["user_id"] == user_id and rt["revoked_at"] is None:
-                        rt["revoked_at"] = now
-            except HTTPException:
-                pass
-
-        response.delete_cookie(key="refresh_token", path="/auth/refresh")
+    async def logout(self, request: Request, response: Response) -> LogoutResponse:
+        raw_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
+        if raw_refresh:
+            token_hash = _sha256(raw_refresh)
+            now = datetime.now(timezone.utc)
+            for rt in _refresh_tokens:
+                if rt["token_hash"] == token_hash and rt["revoked_at"] is None:
+                    rt["revoked_at"] = now
+                    break
+        _clear_refresh_cookie(response)
         return LogoutResponse(message="Logged out successfully.")
 
     # ------------------------------------------------------------------
     # refresh
     # ------------------------------------------------------------------
-    async def refresh(
-        self,
-        credentials: Optional[HTTPAuthorizationCredentials],
-        response: Response,
-    ) -> RefreshResponse:
-        # In a real implementation, read refresh token from the httpOnly cookie.
-        # Here we accept it from the Authorization header as a fallback for testing.
-        if credentials is None:
+    async def refresh(self, request: Request, response: Response) -> RefreshResponse:
+        raw_refresh = request.cookies.get(REFRESH_COOKIE_NAME)
+        if not raw_refresh:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "MISSING_TOKEN", "message": "Authentication required."},
+                detail={
+                    "error": {
+                        "code": "MISSING_REFRESH_TOKEN",
+                        "message": "Refresh token is missing.",
+                        "details": {},
+                    }
+                },
             )
-
-        raw_token = credentials.credentials
-        token_hash = _sha256(raw_token)
-        now = _now()
-
-        record = next(
-            (
-                rt
-                for rt in _refresh_tokens
-                if rt["token_hash"] == token_hash
+        token_hash = _sha256(raw_refresh)
+        now = datetime.now(timezone.utc)
+        rt_record: Optional[dict] = None
+        for rt in _refresh_tokens:
+            if (
+                rt["token_hash"] == token_hash
                 and rt["revoked_at"] is None
                 and rt["expires_at"] > now
-            ),
-            None,
-        )
+            ):
+                rt_record = rt
+                break
 
-        if record is None:
+        if rt_record is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_TOKEN", "message": "Invalid or expired refresh token."},
+                detail={
+                    "error": {
+                        "code": "INVALID_REFRESH_TOKEN",
+                        "message": "Refresh token is invalid or expired.",
+                        "details": {},
+                    }
+                },
             )
 
-        # Revoke old token (rotation)
-        record["revoked_at"] = now
-
-        user = next(
-            (u for u in _users.values() if u["id"] == record["user_id"]),
-            None,
-        )
-        if user is None or not user["is_active"]:
+        # Rotate: revoke old, issue new
+        rt_record["revoked_at"] = now
+        user = _users_by_id.get(rt_record["user_id"])
+        if not user or not user["is_active"]:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_TOKEN", "message": "Invalid token."},
+                detail={
+                    "error": {
+                        "code": "INVALID_REFRESH_TOKEN",
+                        "message": "Refresh token is invalid or expired.",
+                        "details": {},
+                    }
+                },
             )
 
-        access_token = _make_access_token(user["id"], user["email"])
-        new_raw_refresh = _make_refresh_token()
-        remember = record["remember_me"]
-        expire_days = REMEMBER_ME_EXPIRE_DAYS if remember else REFRESH_TOKEN_EXPIRE_DAYS
-        rt_expires = now + timedelta(days=expire_days)
-
+        access_token = _create_access_token(user["id"], user["email"])
+        new_raw_refresh = _create_refresh_token()
+        remember = rt_record.get("remember_me", False)
+        expire_days = REFRESH_TOKEN_REMEMBER_DAYS if remember else REFRESH_TOKEN_EXPIRE_DAYS
+        new_expires_at = now + timedelta(days=expire_days)
         _refresh_tokens.append(
             {
                 "id": secrets.token_hex(16),
                 "user_id": user["id"],
                 "token_hash": _sha256(new_raw_refresh),
-                "expires_at": rt_expires,
+                "expires_at": new_expires_at,
                 "revoked_at": None,
                 "remember_me": remember,
                 "created_at": now,
             }
         )
-
-        response.set_cookie(
-            key="refresh_token",
-            value=new_raw_refresh,
-            httponly=True,
-            samesite="lax",
-            secure=True,
-            max_age=int(timedelta(days=expire_days).total_seconds()),
-            path="/auth/refresh",
-        )
-
-        return RefreshResponse(
-            accessToken=access_token,
-            tokenType="bearer",
-        )
+        _set_refresh_cookie(response, new_raw_refresh, remember)
+        return RefreshResponse(accessToken=access_token, tokenType="bearer")

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -11,12 +11,19 @@ from pydantic import BaseModel, EmailStr, Field
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    remember_me: Optional[bool] = None
+    remember_me: Optional[bool] = False
+
+
+class LoginUserInfo(BaseModel):
+    id: str
+    fullName: str
+    email: EmailStr
 
 
 class LoginResponse(BaseModel):
     accessToken: str
     tokenType: str
+    user: LoginUserInfo
 
 
 # ---------------------------------------------------------------------------
@@ -25,16 +32,21 @@ class LoginResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
-    full_name: str = Field(..., min_length=1)
+    fullName: str = Field(..., min_length=1)
     email: EmailStr
     password: str
-    confirm_password: str
+    confirmPassword: str
 
 
-class RegisterResponse(BaseModel):
+class RegisterUserInfo(BaseModel):
     id: str
     fullName: str
     email: EmailStr
+
+
+class RegisterResponse(BaseModel):
+    message: str
+    user: RegisterUserInfo
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +70,7 @@ class ForgotPasswordResponse(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
-    confirm_password: str
+    confirmPassword: str
 
 
 class ResetPasswordResponse(BaseModel):
@@ -81,10 +93,6 @@ class MeResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class LogoutRequest(BaseModel):
-    pass
-
-
 class LogoutResponse(BaseModel):
     message: str
 
@@ -100,14 +108,14 @@ class RefreshResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Error envelope
+# Error envelope (shared)
 # ---------------------------------------------------------------------------
 
 
 class ErrorDetail(BaseModel):
     code: str
     message: str
-    details: Optional[dict] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ErrorResponse(BaseModel):

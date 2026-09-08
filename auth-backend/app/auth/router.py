@@ -1,6 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+from fastapi import APIRouter, Depends, Response, Request, status
 from app.auth.schemas import (
     LoginRequest,
     LoginResponse,
@@ -11,15 +9,12 @@ from app.auth.schemas import (
     ResetPasswordRequest,
     ResetPasswordResponse,
     MeResponse,
-    LogoutRequest,
     LogoutResponse,
     RefreshResponse,
 )
 from app.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-_bearer = HTTPBearer(auto_error=False)
 
 
 def get_auth_service() -> AuthService:
@@ -33,6 +28,7 @@ def get_auth_service() -> AuthService:
     operation_id="login",
 )
 async def login(
+    request: Request,
     body: LoginRequest,
     response: Response,
     service: AuthService = Depends(get_auth_service),
@@ -86,10 +82,9 @@ async def resetPassword(
     operation_id="me",
 )
 async def me(
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     service: AuthService = Depends(get_auth_service),
 ) -> MeResponse:
-    return await service.me(credentials)
+    return await service.me()
 
 
 @router.post(
@@ -99,12 +94,11 @@ async def me(
     operation_id="logout",
 )
 async def logout(
-    body: LogoutRequest,
+    request: Request,
     response: Response,
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     service: AuthService = Depends(get_auth_service),
 ) -> LogoutResponse:
-    return await service.logout(body, credentials, response)
+    return await service.logout(request, response)
 
 
 @router.post(
@@ -114,8 +108,8 @@ async def logout(
     operation_id="refresh",
 )
 async def refresh(
+    request: Request,
     response: Response,
-    credentials: HTTPAuthorizationCredentials = Depends(_bearer),
     service: AuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
-    return await service.refresh(credentials, response)
+    return await service.refresh(request, response)
