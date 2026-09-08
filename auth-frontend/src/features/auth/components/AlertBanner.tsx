@@ -7,7 +7,7 @@ interface AlertBannerProps {
   message: string;
 }
 
-function AlertBanner({ variant, message }: AlertBannerProps): JSX.Element {
+function AlertBanner({ variant, message }: AlertBannerProps): React.JSX.Element {
   return (
     <div
       className={`alert-banner alert-banner--${variant}`}

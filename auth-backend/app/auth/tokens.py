@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
-from jose import JWTError, jwt
+from jose import jwt
 
 from app.config.settings import settings
 
@@ -58,7 +56,7 @@ def hash_token(raw_token: str) -> str:
 def create_access_token(
     user_id: int,
     email: str,
-    extra_claims: Optional[dict] = None,
+    extra_claims: dict | None = None,
 ) -> str:
     """
     Create a signed JWT access token.

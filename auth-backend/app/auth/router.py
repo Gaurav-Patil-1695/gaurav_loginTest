@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -17,7 +19,7 @@ from app.auth.service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-bearerScheme = HTTPBearer(auto_error=False)
+bearer_scheme = HTTPBearer(auto_error=False)
 
 
 def get_auth_service() -> AuthService:
@@ -32,7 +34,7 @@ def get_auth_service() -> AuthService:
 )
 async def register(
     body: RegisterRequest,
-    service: AuthService = Depends(get_auth_service),
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> RegisterResponse:
     return await service.register(body)
 
@@ -46,7 +48,7 @@ async def register(
 async def login(
     body: LoginRequest,
     response: Response,
-    service: AuthService = Depends(get_auth_service),
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> LoginResponse:
     return await service.login(body, response)
 
@@ -60,7 +62,7 @@ async def login(
 async def refresh(
     request: Request,
     response: Response,
-    service: AuthService = Depends(get_auth_service),
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> RefreshResponse:
     return await service.refresh(request, response)
 
@@ -73,8 +75,8 @@ async def refresh(
 async def logout(
     request: Request,
     response: Response,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearerScheme),
-    service: AuthService = Depends(get_auth_service),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> None:
     access_token: str | None = credentials.credentials if credentials else None
     await service.logout(request, response, access_token)
@@ -87,8 +89,8 @@ async def logout(
     operation_id="me",
 )
 async def me(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearerScheme),
-    service: AuthService = Depends(get_auth_service),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> MeResponse:
     if credentials is None:
         raise HTTPException(
@@ -110,9 +112,9 @@ async def me(
     status_code=status.HTTP_202_ACCEPTED,
     operation_id="forgotPassword",
 )
-async def forgotPassword(
+async def forgot_password(
     body: ForgotPasswordRequest,
-    service: AuthService = Depends(get_auth_service),
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> ForgotPasswordResponse:
     return await service.forgotPassword(body)
 
@@ -123,8 +125,8 @@ async def forgotPassword(
     status_code=status.HTTP_200_OK,
     operation_id="resetPassword",
 )
-async def resetPassword(
+async def reset_password(
     body: ResetPasswordRequest,
-    service: AuthService = Depends(get_auth_service),
+    service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> ResetPasswordResponse:
     return await service.resetPassword(body)

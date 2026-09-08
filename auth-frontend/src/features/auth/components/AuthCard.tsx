@@ -4,7 +4,7 @@ interface AuthCardProps {
   children: React.ReactNode;
 }
 
-function AuthCard({ children }: AuthCardProps): JSX.Element {
+function AuthCard({ children }: AuthCardProps): React.JSX.Element {
   return (
     <div className="auth-layout">
       <div className="auth-card">

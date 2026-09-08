@@ -109,10 +109,10 @@ export async function apiFetch<T>(
                   err.details,
                 ),
               );
-            } else {
-              const data: T = await retryResponse.json().catch(() => ({} as T));
-              resolve(data);
+              return;
             }
+            const data: T = await retryResponse.json().catch(() => ({} as T));
+            resolve(data);
           })
           .catch(reject);
       });

@@ -232,7 +232,7 @@ function validateEmail(email: string): string {
   if (!email.trim()) {
     return 'Email is required.';
   }
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
   if (!emailRegex.test(email)) {
     return 'Enter a valid email address.';
   }
@@ -291,7 +291,7 @@ const ForgotPasswordPage: React.FC = () => {
           <span className="forgot-page__brand-name">auth-starter</span>
         </div>
 
-        <div className="auth-card" role="main">
+        <main className="auth-card">
           <h1 className="auth-card__title">Forgot password?</h1>
           <p className="auth-card__subtitle">
             Enter your email address and we&apos;ll send you a link to reset your password.
@@ -354,7 +354,7 @@ const ForgotPasswordPage: React.FC = () => {
           <div className="auth-card__footer">
             <a href="/login">Back to sign in</a>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

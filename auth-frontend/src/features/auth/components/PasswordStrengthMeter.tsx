@@ -33,7 +33,7 @@ interface PasswordStrengthMeterProps {
   password: string;
 }
 
-function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps): JSX.Element {
+function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps): React.JSX.Element {
   const results = RULES.map((rule) => ({
     ...rule,
     passed: rule.test(password),
@@ -43,7 +43,7 @@ function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps): JSX.El
 
   return (
     <div className="password-strength" aria-label="Password strength checklist">
-      <ul className="password-strength__checklist" role="list">
+      <ul className="password-strength__checklist">
         {results.map((rule) => (
           <li
             key={rule.key}
@@ -91,25 +91,13 @@ function PasswordStrengthMeter({ password }: PasswordStrengthMeterProps): JSX.El
           </li>
         ))}
       </ul>
-      <div
+      <meter
         className="password-strength__bar"
-        role="meter"
         aria-label="Password strength"
-        aria-valuenow={passedCount}
-        aria-valuemin={0}
-        aria-valuemax={RULES.length}
-      >
-        {RULES.map((rule, index) => (
-          <div
-            key={rule.key}
-            className={`password-strength__bar-segment${
-              index < passedCount
-                ? ' password-strength__bar-segment--filled'
-                : ''
-            }`}
-          />
-        ))}
-      </div>
+        value={passedCount}
+        min={0}
+        max={RULES.length}
+      />
     </div>
   );
 }

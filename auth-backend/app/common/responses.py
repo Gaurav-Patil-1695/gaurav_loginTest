@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 from fastapi.responses import JSONResponse
 
@@ -9,7 +9,7 @@ def error_response(
     code: ErrorCode,
     message: str,
     status_code: int = 400,
-    details: Optional[Dict[str, Any]] = None,
+    details: dict[str, Any] | None = None,
 ) -> JSONResponse:
     content = {
         "error": {

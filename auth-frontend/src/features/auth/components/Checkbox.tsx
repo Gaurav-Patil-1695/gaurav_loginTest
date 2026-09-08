@@ -20,7 +20,7 @@ function Checkbox({
   error,
   disabled = false,
   required = false,
-}: CheckboxProps): JSX.Element {
+}: CheckboxProps): React.JSX.Element {
   const errorId = error ? `${id}-error` : undefined;
 
   return (

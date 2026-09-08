@@ -1,12 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
-
-from app.models.password_reset import PasswordReset
 
 
 # ---------------------------------------------------------------------------
@@ -16,7 +13,7 @@ from app.models.password_reset import PasswordReset
 async def get_user_by_email(
     conn: AsyncConnection,
     email: str,
-) -> Optional[dict]:
+) -> dict | None:
     result = await conn.execute(
         text("SELECT * FROM users WHERE email = :email LIMIT 1"),
         {"email": email},
@@ -28,7 +25,7 @@ async def get_user_by_email(
 async def get_user_by_id(
     conn: AsyncConnection,
     user_id: int,
-) -> Optional[dict]:
+) -> dict | None:
     result = await conn.execute(
         text("SELECT * FROM users WHERE id = :id LIMIT 1"),
         {"id": user_id},
@@ -102,7 +99,7 @@ async def create_password_reset(
 async def get_password_reset_by_token_hash(
     conn: AsyncConnection,
     token_hash: str,
-) -> Optional[dict]:
+) -> dict | None:
     result = await conn.execute(
         text(
             """
@@ -185,7 +182,7 @@ async def create_refresh_token(
 async def get_refresh_token_by_hash(
     conn: AsyncConnection,
     token_hash: str,
-) -> Optional[dict]:
+) -> dict | None:
     result = await conn.execute(
         text(
             """

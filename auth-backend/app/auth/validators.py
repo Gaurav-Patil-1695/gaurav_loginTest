@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 
 # ---------------------------------------------------------------------------
@@ -38,12 +38,18 @@ MSG_LOGIN_INVALID = "Invalid email or password."
 MSG_TOKEN_REQUIRED = "Reset token is required."
 MSG_TOKEN_INVALID = "This password reset link is invalid or has expired."
 
+_EMAIL_RE = re.compile(
+    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+"
+    r"@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+    r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+)
+
 
 # ---------------------------------------------------------------------------
 # Individual field validators
 # ---------------------------------------------------------------------------
 
-def validate_full_name(value: Optional[str]) -> list[str]:
+def validate_full_name(value: str | None) -> list[str]:
     """Return a list of error messages for the full_name field."""
     errors: list[str] = []
     if not value or not value.strip():
@@ -54,7 +60,7 @@ def validate_full_name(value: Optional[str]) -> list[str]:
     return errors
 
 
-def validate_email(value: Optional[str]) -> list[str]:
+def validate_email(value: str | None) -> list[str]:
     """Return a list of error messages for the email field."""
     errors: list[str] = []
     if not value or not value.strip():
@@ -64,17 +70,12 @@ def validate_email(value: Optional[str]) -> list[str]:
         errors.append(MSG_EMAIL_MAX)
         return errors
     # Simple but standard RFC-5322-ish check
-    pattern = re.compile(
-        r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+"
-        r"@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
-        r"(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
-    )
-    if not pattern.match(value):
+    if not _EMAIL_RE.match(value):
         errors.append(MSG_EMAIL_INVALID)
     return errors
 
 
-def validate_password(value: Optional[str]) -> list[str]:
+def validate_password(value: str | None) -> list[str]:
     """
     Return a list of error messages for the password field.
 
@@ -103,8 +104,8 @@ def validate_password(value: Optional[str]) -> list[str]:
 
 
 def validate_confirm_password(
-    password: Optional[str],
-    confirm_password: Optional[str],
+    password: str | None,
+    confirm_password: str | None,
 ) -> list[str]:
     """Return a list of error messages for the confirm_password field."""
     errors: list[str] = []
@@ -124,7 +125,7 @@ def validate_terms_accepted(value: Any) -> list[str]:
     return errors
 
 
-def validate_reset_token(value: Optional[str]) -> list[str]:
+def validate_reset_token(value: str | None) -> list[str]:
     """Return a list of error messages for the reset token field."""
     errors: list[str] = []
     if not value or not value.strip():
@@ -137,10 +138,10 @@ def validate_reset_token(value: Optional[str]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def validate_registration(
-    full_name: Optional[str],
-    email: Optional[str],
-    password: Optional[str],
-    confirm_password: Optional[str],
+    full_name: str | None,
+    email: str | None,
+    password: str | None,
+    confirm_password: str | None,
     terms_accepted: Any,
 ) -> dict[str, list[str]]:
     """
@@ -173,9 +174,9 @@ def validate_registration(
 
 
 def validate_reset_password(
-    token: Optional[str],
-    password: Optional[str],
-    confirm_password: Optional[str],
+    token: str | None,
+    password: str | None,
+    confirm_password: str | None,
 ) -> dict[str, list[str]]:
     """
     Run all reset-password field validators and return a mapping of

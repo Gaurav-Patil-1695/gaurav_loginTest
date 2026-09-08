@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class ErrorCode(str, Enum):
@@ -18,7 +18,7 @@ class AppException(Exception):
         code: ErrorCode,
         message: str,
         status_code: int = 400,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         self.code = code
         self.message = message
@@ -31,7 +31,7 @@ class ValidationError(AppException):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             code=ErrorCode.VALIDATION_ERROR,

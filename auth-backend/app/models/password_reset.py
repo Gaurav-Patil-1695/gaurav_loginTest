@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 
 class PasswordReset:
@@ -11,14 +10,14 @@ class PasswordReset:
         user_id: str,
         token_hash: str,
         expires_at: datetime,
-        used_at: Optional[datetime],
+        used_at: datetime | None,
         created_at: datetime,
     ) -> None:
         self.id: str = id
         self.user_id: str = user_id
         self.token_hash: str = token_hash
         self.expires_at: datetime = expires_at
-        self.used_at: Optional[datetime] = used_at
+        self.used_at: datetime | None = used_at
         self.created_at: datetime = created_at
 
     def is_valid(self, now: datetime) -> bool:

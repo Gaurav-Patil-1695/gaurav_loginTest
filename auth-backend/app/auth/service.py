@@ -4,7 +4,6 @@ import hashlib
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import bcrypt
 import jwt
@@ -47,14 +46,24 @@ REFRESH_COOKIE_NAME: str = "refresh_token"
 # ---------------------------------------------------------------------------
 # In-memory stores (replace with real DB repositories in production)
 # ---------------------------------------------------------------------------
-# users: {email: {id, full_name, email, password_hash, is_active, created_at, updated_at}}
+# users: {email: {id, full_name, email, password_hash, is_active,
+#         created_at, updated_at}}
 _users: dict[str, dict] = {}
-# refresh_tokens: {token_hash: {id, user_id, token_hash, expires_at, revoked_at, remember_me, created_at}}
+# refresh_tokens: {token_hash: {id, user_id, token_hash, expires_at,
+#                  revoked_at, remember_me, created_at}}
 _refresh_tokens: dict[str, dict] = {}
-# password_resets: {token_hash: {id, user_id, token_hash, expires_at, used_at, created_at}}
+# password_resets: {token_hash: {id, user_id, token_hash, expires_at,
+#                   used_at, created_at}}
 _password_resets: dict[str, dict] = {}
 # revoked access tokens: {jti}
 _revoked_jtis: set[str] = set()
+
+# ---------------------------------------------------------------------------
+# Shared error message constants
+# ---------------------------------------------------------------------------
+
+_MSG_INVALID_OR_EXPIRED_REFRESH = "Invalid or expired refresh token."
+_MSG_INVALID_OR_EXPIRED_RESET = "Password reset token is invalid or has expired."
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +160,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     )
 
 
-def _validate_password_policy(password: str) -> Optional[str]:
+def _validate_password_policy(password: str) -> str | None:
     """Return an error message if the password fails policy, else None."""
     if len(password) < 8:
         return "Password must be at least 8 characters."
@@ -206,7 +215,9 @@ class AuthService:
                     "error": {
                         "code": "EMAIL_TAKEN",
                         "message": "An account with this email already exists.",
-                        "details": {"email": "An account with this email already exists."},
+                        "details": {
+                            "email": "An account with this email already exists.",
+                        },
                     }
                 },
             )
@@ -265,7 +276,10 @@ class AuthService:
         remember_me: bool = body.remember_me if body.remember_me is not None else False
         raw_refresh = _generate_token()
         refresh_hash = _sha256(raw_refresh)
-        expire_days = REFRESH_TOKEN_REMEMBER_ME_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        expire_days = (
+            REFRESH_TOKEN_REMEMBER_ME_DAYS if remember_me
+            else REFRESH_TOKEN_EXPIRE_DAYS
+        )
         expires_at = _now() + timedelta(days=expire_days)
         _refresh_tokens[refresh_hash] = {
             "id": secrets.token_hex(16),
@@ -311,7 +325,7 @@ class AuthService:
                 detail={
                     "error": {
                         "code": "INVALID_REFRESH_TOKEN",
-                        "message": "Invalid or expired refresh token.",
+                        "message": _MSG_INVALID_OR_EXPIRED_REFRESH,
                         "details": {},
                     }
                 },
@@ -323,7 +337,7 @@ class AuthService:
                 detail={
                     "error": {
                         "code": "REFRESH_TOKEN_REVOKED",
-                        "message": "Invalid or expired refresh token.",
+                        "message": _MSG_INVALID_OR_EXPIRED_REFRESH,
                         "details": {},
                     }
                 },
@@ -337,7 +351,7 @@ class AuthService:
                 detail={
                     "error": {
                         "code": "REFRESH_TOKEN_EXPIRED",
-                        "message": "Invalid or expired refresh token.",
+                        "message": _MSG_INVALID_OR_EXPIRED_REFRESH,
                         "details": {},
                     }
                 },
@@ -370,7 +384,10 @@ class AuthService:
         remember_me: bool = record["remember_me"]
         new_raw_refresh = _generate_token()
         new_refresh_hash = _sha256(new_raw_refresh)
-        expire_days = REFRESH_TOKEN_REMEMBER_ME_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+        expire_days = (
+            REFRESH_TOKEN_REMEMBER_ME_DAYS if remember_me
+            else REFRESH_TOKEN_EXPIRE_DAYS
+        )
         new_expires_at = _now() + timedelta(days=expire_days)
         _refresh_tokens[new_refresh_hash] = {
             "id": secrets.token_hex(16),
@@ -483,7 +500,10 @@ class AuthService:
 
         # Always return the same generic response (enumeration resistance)
         return ForgotPasswordResponse(
-            message="If an account with that email exists, a password reset link has been sent."
+            message=(
+                "If an account with that email exists, a password reset link"
+                " has been sent."
+            )
         )
 
     # ------------------------------------------------------------------
@@ -525,7 +545,7 @@ class AuthService:
             detail={
                 "error": {
                     "code": "INVALID_RESET_TOKEN",
-                    "message": "Password reset token is invalid or has expired.",
+                    "message": _MSG_INVALID_OR_EXPIRED_RESET,
                     "details": {},
                 }
             },
