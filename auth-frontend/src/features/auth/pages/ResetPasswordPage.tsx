@@ -8,23 +8,27 @@ const STYLES = `
     --color-accent-primary: #4f46e5;
     --color-accent-primary-active: #3730a3;
     --color-accent-primary-hover: #4338ca;
-    --color-bg-app: #f1f5f9;
-    --color-border: #E2E8F0;
-    --color-border-strong: #CBD5E1;
+    --color-bg-app: #f5f3ff;
+    --color-border: #e8e5ff;
+    --color-border-strong: #c4b5fd;
     --color-error: #DC2626;
+    --color-error-light: #fef2f2;
+    --color-error-border: #fecaca;
     --color-focus-ring: #818cf8;
     --color-info: #2563EB;
     --color-link: #4f46e5;
-    --color-muted-surface: #f8fafc;
+    --color-muted-surface: #f5f3ff;
     --color-success: #16A34A;
-    --color-surface: #FFFFFF;
+    --color-success-light: #f0fdf4;
+    --color-success-border: #bbf7d0;
+    --color-surface: #ffffff;
     --color-text-muted: #94A3B8;
     --color-text-primary: #0F172A;
     --color-text-secondary: #475569;
     --color-warning: #D97706;
     --elevation-1: 0 1px 2px rgba(15,23,42,0.06);
     --elevation-2: 0 4px 12px rgba(15,23,42,0.08);
-    --elevation-card: 0 12px 32px rgba(15,23,42,0.12);
+    --elevation-card: 0 12px 32px rgba(79,70,229,0.10);
     --elevation-focus: 0 0 0 3px rgba(129,140,248,0.45);
     --family-base: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
     --radius-button: 8px;
@@ -70,7 +74,7 @@ const STYLES = `
   .rp-branding__logo svg {
     width: 28px;
     height: 28px;
-    fill: #fff;
+    fill: var(--color-surface);
   }
 
   .rp-branding__name {
@@ -85,6 +89,7 @@ const STYLES = `
     background-color: var(--color-surface);
     border-radius: var(--radius-card);
     box-shadow: var(--elevation-card);
+    border: 1px solid var(--color-border);
     padding: var(--space-xl);
     width: 100%;
     max-width: 400px;
@@ -240,7 +245,7 @@ const STYLES = `
     font-size: 16px;
     font-weight: 600;
     font-family: var(--family-base);
-    color: #fff;
+    color: var(--color-surface);
     background-color: var(--color-accent-primary);
     border: none;
     border-radius: var(--radius-button);
@@ -276,7 +281,7 @@ const STYLES = `
     width: 18px;
     height: 18px;
     border: 2px solid rgba(255,255,255,0.35);
-    border-top-color: #fff;
+    border-top-color: var(--color-surface);
     border-radius: var(--radius-full);
     animation: rp-spin 0.7s linear infinite;
     flex-shrink: 0;
@@ -296,15 +301,15 @@ const STYLES = `
   }
 
   .auth-card__banner--error {
-    background-color: #fef2f2;
+    background-color: var(--color-error-light);
     color: var(--color-error);
-    border: 1px solid #fecaca;
+    border: 1px solid var(--color-error-border);
   }
 
   .auth-card__banner--success {
-    background-color: #f0fdf4;
+    background-color: var(--color-success-light);
     color: var(--color-success);
-    border: 1px solid #bbf7d0;
+    border: 1px solid var(--color-success-border);
   }
 
   .auth-card__footer {
