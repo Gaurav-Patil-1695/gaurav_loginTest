@@ -1,52 +1,46 @@
-from typing import Any, Dict
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
-
-
-# ---------------------------------------------------------------------------
-# Register
-# ---------------------------------------------------------------------------
-
-class RegisterRequest(BaseModel):
-    full_name: str = Field(..., min_length=1)
-    email: EmailStr
-    password: str = Field(..., min_length=8)
-    confirm_password: str = Field(..., min_length=1)
-
-
-class UserInfo(BaseModel):
-    id: str
-    full_name: str
-    email: str
-
-
-class RegisterResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str
-    user: UserInfo
 
 
 # ---------------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------------
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    remember_me: bool = False
+    remember_me: Optional[bool] = None
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str
-    user: UserInfo
+    accessToken: str
+    tokenType: str
+
+
+# ---------------------------------------------------------------------------
+# Register
+# ---------------------------------------------------------------------------
+
+
+class RegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=1)
+    email: EmailStr
+    password: str
+    confirm_password: str
+
+
+class RegisterResponse(BaseModel):
+    id: str
+    fullName: str
+    email: EmailStr
 
 
 # ---------------------------------------------------------------------------
 # Forgot Password
 # ---------------------------------------------------------------------------
+
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -60,10 +54,11 @@ class ForgotPasswordResponse(BaseModel):
 # Reset Password
 # ---------------------------------------------------------------------------
 
+
 class ResetPasswordRequest(BaseModel):
-    token: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=8)
-    confirm_password: str = Field(..., min_length=1)
+    token: str
+    password: str
+    confirm_password: str
 
 
 class ResetPasswordResponse(BaseModel):
@@ -74,16 +69,21 @@ class ResetPasswordResponse(BaseModel):
 # Me
 # ---------------------------------------------------------------------------
 
+
 class MeResponse(BaseModel):
     id: str
-    full_name: str
-    email: str
-    is_active: bool
+    fullName: str
+    email: EmailStr
 
 
 # ---------------------------------------------------------------------------
 # Logout
 # ---------------------------------------------------------------------------
+
+
+class LogoutRequest(BaseModel):
+    pass
+
 
 class LogoutResponse(BaseModel):
     message: str
@@ -93,20 +93,21 @@ class LogoutResponse(BaseModel):
 # Refresh
 # ---------------------------------------------------------------------------
 
+
 class RefreshResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str
+    accessToken: str
+    tokenType: str
 
 
 # ---------------------------------------------------------------------------
 # Error envelope
 # ---------------------------------------------------------------------------
 
+
 class ErrorDetail(BaseModel):
     code: str
     message: str
-    details: Dict[str, Any] = Field(default_factory=dict)
+    details: Optional[dict] = None
 
 
 class ErrorResponse(BaseModel):
