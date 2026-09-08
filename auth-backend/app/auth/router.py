@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 from app.auth.schemas import (
     LoginRequest,
     LoginResponse,
@@ -9,16 +9,17 @@ from app.auth.schemas import (
     ResetPasswordRequest,
     ResetPasswordResponse,
     MeResponse,
+    LogoutRequest,
     LogoutResponse,
+    RefreshRequest,
     RefreshResponse,
+    ErrorResponse,
 )
 from app.auth.service import AuthService
+from app.core.dependencies import get_auth_service, get_current_user
+from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-def get_auth_service() -> AuthService:
-    return AuthService()
 
 
 @router.post(
@@ -28,7 +29,6 @@ def get_auth_service() -> AuthService:
     operation_id="login",
 )
 async def login(
-    request: Request,
     body: LoginRequest,
     response: Response,
     service: AuthService = Depends(get_auth_service),
@@ -82,9 +82,16 @@ async def resetPassword(
     operation_id="me",
 )
 async def me(
-    service: AuthService = Depends(get_auth_service),
+    current_user: User = Depends(get_current_user),
 ) -> MeResponse:
-    return await service.me()
+    return MeResponse(
+        id=current_user.id,
+        full_name=current_user.full_name,
+        email=current_user.email,
+        is_active=current_user.is_active,
+        created_at=current_user.created_at,
+        updated_at=current_user.updated_at,
+    )
 
 
 @router.post(
@@ -94,11 +101,13 @@ async def me(
     operation_id="logout",
 )
 async def logout(
-    request: Request,
+    body: LogoutRequest,
     response: Response,
+    request: Request,
     service: AuthService = Depends(get_auth_service),
+    current_user: User = Depends(get_current_user),
 ) -> LogoutResponse:
-    return await service.logout(request, response)
+    return await service.logout(body, response, request, current_user)
 
 
 @router.post(
@@ -108,8 +117,9 @@ async def logout(
     operation_id="refresh",
 )
 async def refresh(
-    request: Request,
+    body: RefreshRequest,
     response: Response,
+    request: Request,
     service: AuthService = Depends(get_auth_service),
 ) -> RefreshResponse:
-    return await service.refresh(request, response)
+    return await service.refresh(body, response, request)
