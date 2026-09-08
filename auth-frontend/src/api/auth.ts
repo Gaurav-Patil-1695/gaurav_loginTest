@@ -1,105 +1,113 @@
-import axios from 'axios';
+const API_BASE = '/auth';
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL ?? 'http://localhost:8000',
-  withCredentials: true,
-});
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface LoginRequest {
   email: string;
   password: string;
-  rememberMe?: boolean;
+  remember_me?: boolean;
 }
 
 export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
-  user: UserResponse;
+  access_token: string;
+  token_type: string;
 }
 
 export interface RegisterRequest {
-  fullName: string;
+  full_name: string;
   email: string;
   password: string;
-  confirmPassword: string;
-  acceptTerms: boolean;
+  confirm_password: string;
 }
 
 export interface RegisterResponse {
-  accessToken: string;
-  tokenType: string;
-  user: UserResponse;
-}
-
-export interface UserResponse {
   id: string;
-  fullName: string;
+  full_name: string;
   email: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ForgotPasswordRequest {
   email: string;
 }
 
-export interface ForgotPasswordResponse {
-  message: string;
-}
-
 export interface ResetPasswordRequest {
   token: string;
-  newPassword: string;
-  confirmPassword: string;
-}
-
-export interface ResetPasswordResponse {
-  message: string;
+  password: string;
+  confirm_password: string;
 }
 
 export interface RefreshResponse {
-  accessToken: string;
-  tokenType: string;
+  access_token: string;
+  token_type: string;
 }
 
-export interface LogoutResponse {
-  message: string;
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    credentials: 'include',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    let errorPayload: unknown;
+    try {
+      errorPayload = await response.json();
+    } catch {
+      errorPayload = { error: { code: 'UNKNOWN', message: response.statusText } };
+    }
+    throw errorPayload;
+  }
+
+  if (response.status === 204) {
+    return undefined as unknown as T;
+  }
+
+  return response.json() as Promise<T>;
 }
 
-export const login = async (data: LoginRequest): Promise<LoginResponse> => {
-  const response = await api.post<LoginResponse>('/auth/login', data);
-  return response.data;
-};
+export async function login(data: LoginRequest): Promise<LoginResponse> {
+  return request<LoginResponse>('POST', '/login', data);
+}
 
-export const register = async (data: RegisterRequest): Promise<RegisterResponse> => {
-  const response = await api.post<RegisterResponse>('/auth/register', data);
-  return response.data;
-};
+export async function register(data: RegisterRequest): Promise<RegisterResponse> {
+  return request<RegisterResponse>('POST', '/register', data);
+}
 
-export const forgotPassword = async (data: ForgotPasswordRequest): Promise<ForgotPasswordResponse> => {
-  const response = await api.post<ForgotPasswordResponse>('/auth/forgot-password', data);
-  return response.data;
-};
+export async function forgotPassword(data: ForgotPasswordRequest): Promise<void> {
+  return request<void>('POST', '/forgot-password', data);
+}
 
-export const resetPassword = async (data: ResetPasswordRequest): Promise<ResetPasswordResponse> => {
-  const response = await api.post<ResetPasswordResponse>('/auth/reset-password', data);
-  return response.data;
-};
+export async function resetPassword(data: ResetPasswordRequest): Promise<void> {
+  return request<void>('POST', '/reset-password', data);
+}
 
-export const me = async (): Promise<UserResponse> => {
-  const response = await api.get<UserResponse>('/auth/me');
-  return response.data;
-};
+export async function me(): Promise<UserProfile> {
+  return request<UserProfile>('GET', '/me');
+}
 
-export const logout = async (): Promise<LogoutResponse> => {
-  const response = await api.post<LogoutResponse>('/auth/logout');
-  return response.data;
-};
+export async function logout(): Promise<void> {
+  return request<void>('POST', '/logout');
+}
 
-export const refresh = async (): Promise<RefreshResponse> => {
-  const response = await api.post<RefreshResponse>('/auth/refresh');
-  return response.data;
-};
-
-export default api;
+export async function refresh(): Promise<RefreshResponse> {
+  return request<RefreshResponse>('POST', '/refresh');
+}
