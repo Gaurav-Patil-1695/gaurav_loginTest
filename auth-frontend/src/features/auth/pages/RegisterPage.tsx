@@ -146,28 +146,47 @@ export default function RegisterPage(): JSX.Element {
     <div className="auth-page">
       <style>{`
         :root {
-          --color-accent-primary: #4f46e5;
-          --color-accent-primary-hover: #4338ca;
-          --color-accent-primary-active: #3730a3;
-          --color-accent-disabled: #c7d2fe;
-          --color-bg-app: #f1f5f9;
-          --color-border: #E2E8F0;
-          --color-border-strong: #CBD5E1;
+          --color-accent-primary: #7c3aed;
+          --color-accent-primary-hover: #6d28d9;
+          --color-accent-primary-active: #5b21b6;
+          --color-accent-disabled: #ddd6fe;
+          --color-bg-app: #faf5ff;
+          --color-border: #ede9fe;
+          --color-border-strong: #c4b5fd;
+          --color-border-default: #c4b5fd;
+          --color-border-focus: #7c3aed;
+          --color-border-error: #dc2626;
           --color-error: #DC2626;
-          --color-focus-ring: #818cf8;
+          --color-error-light: #fef2f2;
+          --color-error-border: #fecaca;
+          --color-focus-ring: #a78bfa;
           --color-info: #2563EB;
-          --color-link: #4f46e5;
-          --color-muted-surface: #f8fafc;
+          --color-link: #7c3aed;
+          --color-text-link: #7c3aed;
+          --color-text-link-hover: #6d28d9;
+          --color-muted-surface: #f5f3ff;
+          --color-bg-page: #faf5ff;
+          --color-bg-card: #ffffff;
+          --color-bg-input: #ffffff;
+          --color-bg-input-disabled: #f5f3ff;
           --color-success: #16A34A;
-          --color-surface: #FFFFFF;
-          --color-text-muted: #94A3B8;
-          --color-text-primary: #0F172A;
-          --color-text-secondary: #475569;
+          --color-success-light: #f0fdf4;
+          --color-success-border: #bbf7d0;
+          --color-surface: #ffffff;
+          --color-text-muted: #a78bfa;
+          --color-text-placeholder: #c4b5fd;
+          --color-text-primary: #1e1b4b;
+          --color-text-secondary: #4c1d95;
+          --color-text-error: #dc2626;
+          --color-text-success: #16a34a;
+          --color-text-inverse: #ffffff;
           --color-warning: #D97706;
-          --elevation-1: 0 1px 2px rgba(15,23,42,0.06);
-          --elevation-2: 0 4px 12px rgba(15,23,42,0.08);
-          --elevation-card: 0 12px 32px rgba(15,23,42,0.12);
-          --elevation-focus: 0 0 0 3px rgba(129,140,248,0.45);
+          --color-neutral-0: #ffffff;
+          --color-neutral-400: #a78bfa;
+          --elevation-1: 0 1px 2px rgba(109,40,217,0.06);
+          --elevation-2: 0 4px 12px rgba(109,40,217,0.08);
+          --elevation-card: 0 12px 32px rgba(109,40,217,0.12);
+          --elevation-focus: 0 0 0 3px rgba(167,139,250,0.45);
           --family-base: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
           --family-mono: 'JetBrains Mono', 'Courier New', monospace;
           --radius-button: 8px;
@@ -182,6 +201,24 @@ export default function RegisterPage(): JSX.Element {
           --space-lg: 24px;
           --space-xl: 32px;
           --space-2xl: 48px;
+          --card-bg: #ffffff;
+          --card-shadow: 0 12px 32px rgba(109,40,217,0.12);
+          --card-radius: 16px;
+          --card-width: 28rem;
+          --card-padding: 2rem;
+          --input-radius: 8px;
+          --input-height: 2.5rem;
+          --input-border-width: 1px;
+          --input-font-size: 0.875rem;
+          --input-padding-x: 0.75rem;
+          --input-padding-y: 0.5rem;
+          --button-radius: 8px;
+          --button-height: 2.5rem;
+          --button-font-size: 0.875rem;
+          --button-font-weight: 600;
+          --button-padding-x: 1rem;
+          --button-padding-y: 0.5rem;
+          --font-family-base: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -393,7 +430,7 @@ export default function RegisterPage(): JSX.Element {
           margin-top: var(--space-sm);
           padding: var(--space-sm) var(--space-md);
           background: var(--color-accent-primary);
-          color: #fff;
+          color: var(--color-text-inverse);
           border: none;
           border-radius: var(--radius-button);
           font-size: 16px;
@@ -426,7 +463,7 @@ export default function RegisterPage(): JSX.Element {
           width: 18px;
           height: 18px;
           border: 2px solid rgba(255,255,255,0.4);
-          border-top-color: #fff;
+          border-top-color: var(--color-text-inverse);
           border-radius: var(--radius-full);
           animation: spin 0.7s linear infinite;
           flex-shrink: 0;
@@ -453,15 +490,15 @@ export default function RegisterPage(): JSX.Element {
         }
 
         .banner--error {
-          background: #fef2f2;
+          background: var(--color-error-light);
           color: var(--color-error);
-          border: 1px solid #fecaca;
+          border: 1px solid var(--color-error-border);
         }
 
         .banner--success {
-          background: #f0fdf4;
+          background: var(--color-success-light);
           color: var(--color-success);
-          border: 1px solid #bbf7d0;
+          border: 1px solid var(--color-success-border);
         }
       `}</style>
 
