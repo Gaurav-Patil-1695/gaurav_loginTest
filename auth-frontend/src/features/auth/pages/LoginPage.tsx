@@ -99,29 +99,31 @@ const LoginPage: React.FC = () => {
     <div className="auth-root">
       <style>{`
         :root {
-          --color-accent-disabled: #c7d2fe;
-          --color-accent-primary: #4f46e5;
-          --color-accent-primary-active: #3730a3;
-          --color-accent-primary-hover: #4338ca;
-          --color-bg-app: #f1f5f9;
-          --color-border: #E2E8F0;
-          --color-border-strong: #CBD5E1;
+          --color-accent-disabled: #c4b5fd;
+          --color-accent-primary: #7c3aed;
+          --color-accent-primary-active: #5b21b6;
+          --color-accent-primary-hover: #6d28d9;
+          --color-bg-app: #f5f3ff;
+          --color-border: #ede9fe;
+          --color-border-strong: #ddd6fe;
           --color-error: #DC2626;
-          --color-focus-ring: #818cf8;
+          --color-error-light: var(--color-error-light, #fef2f2);
+          --color-error-border: var(--color-error-border, #fca5a5);
+          --color-focus-ring: #a78bfa;
           --color-info: #2563EB;
-          --color-link: #4f46e5;
-          --color-muted-surface: #f8fafc;
+          --color-link: #7c3aed;
+          --color-muted-surface: #faf5ff;
           --color-success: #16A34A;
-          --color-surface: #FFFFFF;
-          --color-text-muted: #94A3B8;
-          --color-text-primary: #0F172A;
-          --color-text-secondary: #475569;
+          --color-surface: #ffffff;
+          --color-text-muted: #a78bfa;
+          --color-text-primary: #1e1b4b;
+          --color-text-secondary: #4c1d95;
           --color-warning: #D97706;
 
-          --elevation-1: 0 1px 2px rgba(15,23,42,0.06);
-          --elevation-2: 0 4px 12px rgba(15,23,42,0.08);
-          --elevation-card: 0 12px 32px rgba(15,23,42,0.12);
-          --elevation-focus: 0 0 0 3px rgba(129,140,248,0.45);
+          --elevation-1: 0 1px 2px rgba(109,40,217,0.06);
+          --elevation-2: 0 4px 12px rgba(109,40,217,0.08);
+          --elevation-card: 0 12px 32px rgba(109,40,217,0.12);
+          --elevation-focus: 0 0 0 3px rgba(167,139,250,0.45);
 
           --family-base: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
           --family-mono: 'JetBrains Mono', 'Courier New', monospace;
@@ -174,7 +176,7 @@ const LoginPage: React.FC = () => {
         .auth-branding__logo svg {
           width: 28px;
           height: 28px;
-          fill: #fff;
+          fill: var(--color-surface);
         }
 
         .auth-branding__name {
@@ -361,7 +363,7 @@ const LoginPage: React.FC = () => {
 
         .btn--primary {
           background-color: var(--color-accent-primary);
-          color: #fff;
+          color: var(--color-surface);
         }
 
         .btn--primary:hover:not(:disabled) {
@@ -386,7 +388,7 @@ const LoginPage: React.FC = () => {
           width: 18px;
           height: 18px;
           border: 2px solid rgba(255,255,255,0.4);
-          border-top-color: #fff;
+          border-top-color: var(--color-surface);
           border-radius: var(--radius-full);
           animation: spin 0.7s linear infinite;
           flex-shrink: 0;
@@ -404,8 +406,8 @@ const LoginPage: React.FC = () => {
         }
 
         .form-error-banner {
-          background-color: #fef2f2;
-          border: 1px solid #fecaca;
+          background-color: var(--color-error-light, #fef2f2);
+          border: 1px solid var(--color-error-border, #fca5a5);
           border-radius: var(--radius-input);
           padding: var(--space-sm) var(--space-md);
           color: var(--color-error);
