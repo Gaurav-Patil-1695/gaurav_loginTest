@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -10,37 +10,72 @@ from pydantic import BaseModel, EmailStr, Field
 # Register
 # ---------------------------------------------------------------------------
 
+
 class RegisterRequest(BaseModel):
-    full_name: str = Field(..., min_length=1)
+    full_name: str = Field(..., alias="fullName")
     email: EmailStr
     password: str
-    confirm_password: str
+    confirm_password: str = Field(..., alias="confirmPassword")
+
+    model_config = {"populate_by_name": True}
 
 
 class RegisterResponse(BaseModel):
-    message: str
-    user_id: str
+    id: str
+    fullName: str
+    email: str
 
 
 # ---------------------------------------------------------------------------
 # Login
 # ---------------------------------------------------------------------------
 
+
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
-    remember_me: Optional[bool] = False
+    remember_me: Optional[bool] = Field(None, alias="rememberMe")
+
+    model_config = {"populate_by_name": True}
 
 
 class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
+    accessToken: str
+    tokenType: str
+
+
+# ---------------------------------------------------------------------------
+# Refresh
+# ---------------------------------------------------------------------------
+
+
+class RefreshResponse(BaseModel):
+    accessToken: str
+    tokenType: str
+
+
+# ---------------------------------------------------------------------------
+# Logout  (no body schemas needed — 204 No Content)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Me
+# ---------------------------------------------------------------------------
+
+
+class MeResponse(BaseModel):
+    id: str
+    fullName: str
+    email: str
+    isActive: bool
+    createdAt: datetime
 
 
 # ---------------------------------------------------------------------------
 # Forgot Password
 # ---------------------------------------------------------------------------
+
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
@@ -54,10 +89,13 @@ class ForgotPasswordResponse(BaseModel):
 # Reset Password
 # ---------------------------------------------------------------------------
 
+
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
-    confirm_password: str
+    confirm_password: str = Field(..., alias="confirmPassword")
+
+    model_config = {"populate_by_name": True}
 
 
 class ResetPasswordResponse(BaseModel):
@@ -65,57 +103,15 @@ class ResetPasswordResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Me
+# Shared error envelope (used internally; FastAPI serialises via HTTPException)
 # ---------------------------------------------------------------------------
 
-class MeResponse(BaseModel):
-    id: str
-    full_name: str
-    email: str
-    is_active: bool
-    created_at: datetime
-
-
-# ---------------------------------------------------------------------------
-# Logout
-# ---------------------------------------------------------------------------
-
-class LogoutRequest(BaseModel):
-    refresh_token: Optional[str] = None
-
-
-class LogoutResponse(BaseModel):
-    message: str
-
-
-# ---------------------------------------------------------------------------
-# Refresh
-# ---------------------------------------------------------------------------
-
-class RefreshRequest(BaseModel):
-    refresh_token: Optional[str] = None
-
-
-class RefreshResponse(BaseModel):
-    access_token: str
-    token_type: str
-    expires_in: int
-
-
-# ---------------------------------------------------------------------------
-# Error envelope
-# ---------------------------------------------------------------------------
 
 class ErrorDetail(BaseModel):
-    field: str
-    message: str
-
-
-class ErrorBody(BaseModel):
     code: str
     message: str
-    details: List[ErrorDetail] = []
+    details: dict
 
 
 class ErrorResponse(BaseModel):
-    error: ErrorBody
+    error: ErrorDetail
