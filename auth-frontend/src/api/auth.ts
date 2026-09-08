@@ -1,15 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-  rememberMe: boolean;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  tokenType: string;
-}
+const API_BASE = '/api';
 
 export interface RegisterRequest {
   fullName: string;
@@ -20,8 +9,37 @@ export interface RegisterRequest {
 }
 
 export interface RegisterResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface LoginResponse {
   accessToken: string;
   tokenType: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    isActive: boolean;
+    createdAt: string;
+  };
+}
+
+export interface MeResponse {
+  id: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -42,71 +60,56 @@ export interface ResetPasswordResponse {
   message: string;
 }
 
-export interface MeResponse {
-  id: string;
-  fullName: string;
-  email: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+export interface RefreshResponse {
+  accessToken: string;
+  tokenType: string;
 }
 
 export interface LogoutResponse {
   message: string;
 }
 
-export interface RefreshResponse {
-  accessToken: string;
-  tokenType: string;
-}
-
-class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly code?: string,
-  ) {
-    super(message);
-    this.name = 'ApiError';
-  }
+export interface ApiError {
+  status: number;
+  code: string;
+  message: string;
+  details?: unknown;
 }
 
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  headers?: Record<string, string>,
 ): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-
-  const accessToken = sessionStorage.getItem('accessToken') ?? localStorage.getItem('accessToken');
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
-  }
-
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     method,
-    headers,
     credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (!response.ok) {
-    let message = 'Invalid email or password.';
-    let code: string | undefined;
+    let code = 'UNKNOWN_ERROR';
+    let message = 'Something went wrong. Please try again.';
+    let details: unknown;
+
     try {
-      const data = await response.json();
-      if (data?.error?.message) {
-        message = data.error.message;
-      }
-      if (data?.error?.code) {
-        code = data.error.code;
+      const payload = await response.json();
+      if (payload && payload.error) {
+        code = payload.error.code ?? code;
+        message = payload.error.message ?? message;
+        details = payload.error.details;
       }
     } catch {
-      // ignore JSON parse errors
+      // ignore parse errors
     }
-    throw new ApiError(message, response.status, code);
+
+    const err: ApiError = { status: response.status, code, message, details };
+    throw err;
   }
 
   if (response.status === 204) {
@@ -116,78 +119,50 @@ async function request<T>(
   return response.json() as Promise<T>;
 }
 
-function toSnakeCase(body: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body)) {
-    const snakeKey = key.replace(/([A-Z])/g, (char) => `_${char.toLowerCase()}`);
-    result[snakeKey] = value;
-  }
-  return result;
+export async function register(data: RegisterRequest): Promise<RegisterResponse> {
+  return request<RegisterResponse>('POST', '/auth/register', {
+    full_name: data.fullName,
+    email: data.email,
+    password: data.password,
+    confirm_password: data.confirmPassword,
+    accept_terms: data.acceptTerms,
+  });
 }
 
-function fromSnakeCase(body: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body)) {
-    const camelKey = key.replace(/_([a-z])/g, (_, char: string) => char.toUpperCase());
-    result[camelKey] = value;
-  }
-  return result;
-}
-
-export async function login(payload: LoginRequest): Promise<LoginResponse> {
-  const body = toSnakeCase(payload as unknown as Record<string, unknown>);
-  const raw = await request<Record<string, unknown>>('POST', '/auth/login', body);
-  const data = fromSnakeCase(raw) as unknown as LoginResponse;
-
-  const storage = payload.rememberMe ? localStorage : sessionStorage;
-  storage.setItem('accessToken', data.accessToken);
-
-  return data;
-}
-
-export async function register(payload: RegisterRequest): Promise<RegisterResponse> {
-  const body = toSnakeCase(payload as unknown as Record<string, unknown>);
-  const raw = await request<Record<string, unknown>>('POST', '/auth/register', body);
-  const data = fromSnakeCase(raw) as unknown as RegisterResponse;
-
-  sessionStorage.setItem('accessToken', data.accessToken);
-
-  return data;
-}
-
-export async function forgotPassword(payload: ForgotPasswordRequest): Promise<ForgotPasswordResponse> {
-  const body = toSnakeCase(payload as unknown as Record<string, unknown>);
-  const raw = await request<Record<string, unknown>>('POST', '/auth/forgot-password', body);
-  return fromSnakeCase(raw) as unknown as ForgotPasswordResponse;
-}
-
-export async function resetPassword(payload: ResetPasswordRequest): Promise<ResetPasswordResponse> {
-  const body = toSnakeCase(payload as unknown as Record<string, unknown>);
-  const raw = await request<Record<string, unknown>>('POST', '/auth/reset-password', body);
-  return fromSnakeCase(raw) as unknown as ResetPasswordResponse;
+export async function login(data: LoginRequest): Promise<LoginResponse> {
+  return request<LoginResponse>('POST', '/auth/login', {
+    email: data.email,
+    password: data.password,
+    remember_me: data.rememberMe ?? false,
+  });
 }
 
 export async function me(): Promise<MeResponse> {
-  const raw = await request<Record<string, unknown>>('GET', '/auth/me');
-  return fromSnakeCase(raw) as unknown as MeResponse;
+  return request<MeResponse>('GET', '/auth/me');
 }
 
-export async function logout(): Promise<LogoutResponse> {
-  const raw = await request<Record<string, unknown>>('POST', '/auth/logout');
-  localStorage.removeItem('accessToken');
-  sessionStorage.removeItem('accessToken');
-  return fromSnakeCase(raw) as unknown as LogoutResponse;
+export async function forgotPassword(
+  data: ForgotPasswordRequest,
+): Promise<ForgotPasswordResponse> {
+  return request<ForgotPasswordResponse>('POST', '/auth/forgot-password', {
+    email: data.email,
+  });
+}
+
+export async function resetPassword(
+  data: ResetPasswordRequest,
+): Promise<ResetPasswordResponse> {
+  return request<ResetPasswordResponse>('POST', '/auth/reset-password', {
+    token: data.token,
+    password: data.password,
+    confirm_password: data.confirmPassword,
+  });
 }
 
 export async function refresh(): Promise<RefreshResponse> {
-  const raw = await request<Record<string, unknown>>('POST', '/auth/refresh');
-  const data = fromSnakeCase(raw) as unknown as RefreshResponse;
-
-  const hadLocal = localStorage.getItem('accessToken') !== null;
-  const storage = hadLocal ? localStorage : sessionStorage;
-  storage.setItem('accessToken', data.accessToken);
-
-  return data;
+  return request<RefreshResponse>('POST', '/auth/refresh');
 }
 
-export { ApiError };
+export async function logout(): Promise<LogoutResponse> {
+  return request<LogoutResponse>('POST', '/auth/logout');
+}
