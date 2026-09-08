@@ -90,13 +90,14 @@ def _verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 
-def _create_access_token(user_id: str, email: str) -> tuple[str, str]:
+def _create_access_token(user_id: str, email: str, role: str) -> tuple[str, str]:
     """Return (encoded_jwt, jti)."""
     jti = secrets.token_hex(16)
     expire = _now() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": user_id,
         "email": email,
+        "role": role,
         "jti": jti,
         "exp": expire,
         "iat": _now(),
@@ -230,6 +231,7 @@ class AuthService:
             "email": body.email.lower(),
             "password_hash": _hash_password(body.password),
             "is_active": True,
+            "role": "user",
             "created_at": now,
             "updated_at": now,
         }
@@ -271,7 +273,7 @@ class AuthService:
                 },
             )
 
-        access_token, _jti = _create_access_token(user["id"], user["email"])
+        access_token, _jti = _create_access_token(user["id"], user["email"], user["role"])
 
         remember_me: bool = body.remember_me if body.remember_me is not None else False
         raw_refresh = _generate_token()
@@ -378,7 +380,7 @@ class AuthService:
             )
 
         # Issue new access token
-        new_access_token, _jti = _create_access_token(user["id"], user["email"])
+        new_access_token, _jti = _create_access_token(user["id"], user["email"], user["role"])
 
         # Issue new refresh token
         remember_me: bool = record["remember_me"]
@@ -474,6 +476,7 @@ class AuthService:
             email=user["email"],
             isActive=user["is_active"],
             createdAt=user["created_at"],
+            role=user["role"],
         )
 
     # ------------------------------------------------------------------

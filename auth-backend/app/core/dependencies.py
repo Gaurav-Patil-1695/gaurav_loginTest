@@ -62,3 +62,35 @@ def get_current_user(
         raise _unauthorized
 
     return user
+
+
+def require_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Extend get_current_user by requiring the JWT role claim to be 'admin'.
+
+    Raises HTTP 403 if the role claim is missing or is not 'admin'.
+    """
+    _forbidden = HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "error": {
+                "code": "FORBIDDEN",
+                "message": "Admin access required.",
+                "details": {},
+            }
+        },
+    )
+
+    # credentials presence and validity are already guaranteed by get_current_user,
+    # but we re-decode here to read the role claim without altering the User model.
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except JWTError:
+        raise _forbidden
+
+    if payload.get("role") != "admin":
+        raise _forbidden
+
+    return user
