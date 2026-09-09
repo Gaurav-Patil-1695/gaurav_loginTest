@@ -33,7 +33,7 @@
   --color-info-border: #93c5fd;
 
   /* Colors — Background */
-  --color-bg-page: #f3f4f6;
+  --color-bg-page: #e0f7fa;
   --color-bg-card: #ffffff;
   --color-bg-input: #ffffff;
   --color-bg-input-disabled: #f9fafb;
@@ -169,4 +169,19 @@
   --z-index-dropdown: 100;
   --z-index-modal: 200;
   --z-index-toast: 300;
+}
+
+[data-theme="dark"] {
+  --color-bg-page: #0f1a1a;
+  --color-bg-card: #1a2e2e;
+  --color-bg-input: #1a2e2e;
+  --color-bg-input-disabled: #162424;
+  --color-text-primary: #e0f7fa;
+  --color-text-secondary: #b2dfdb;
+  --color-text-muted: #80cbc4;
+  --color-text-placeholder: #4db6ac;
+  --color-border-default: #2e4d4d;
+  --color-neutral-200: #2e4d4d;
+  --card-bg: #1a2e2e;
+  --card-shadow: 0 12px 32px rgba(0,0,0,0.5);
 }
