@@ -23,6 +23,7 @@ class RegisterResponse(BaseModel):
     id: str
     full_name: str = Field(..., alias="fullName")
     email: str
+    role: str
 
     model_config = {"populate_by_name": True}
 
@@ -75,6 +76,7 @@ class MeResponse(BaseModel):
     email: str
     is_active: bool = Field(..., alias="isActive")
     created_at: datetime = Field(..., alias="createdAt")
+    role: str
 
     model_config = {"populate_by_name": True}
 

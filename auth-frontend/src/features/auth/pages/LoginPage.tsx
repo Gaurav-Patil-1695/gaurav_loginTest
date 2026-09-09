@@ -1,11 +1,12 @@
 import React, { useState, useId } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { login } from '../../../api/auth';
+import { login, me, logout } from '../../../api/auth';
 
 interface LoginFormState {
   email: string;
   password: string;
   rememberMe: boolean;
+  role: 'admin' | 'user';
 }
 
 interface LoginFormErrors {
@@ -43,6 +44,7 @@ const LoginPage: React.FC = () => {
     email: '',
     password: '',
     rememberMe: false,
+    role: 'user',
   });
   const [errors, setErrors] = useState<LoginFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,6 +72,10 @@ const LoginPage: React.FC = () => {
     setShowPassword((prev) => !prev);
   };
 
+  const handleRoleChange = (role: 'admin' | 'user') => {
+    setValues((prev) => ({ ...prev, role }));
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const validationErrors = validateLoginForm(values);
@@ -85,6 +91,14 @@ const LoginPage: React.FC = () => {
         password: values.password,
         rememberMe: values.rememberMe,
       });
+      if (values.role === 'admin') {
+        const meResponse = await me();
+        if (meResponse.role !== 'admin') {
+          await logout();
+          setErrors({ form: 'This account does not have admin privileges.' });
+          return;
+        }
+      }
       navigate('/');
     } catch (err: unknown) {
       const message =
@@ -414,6 +428,60 @@ const LoginPage: React.FC = () => {
           font-size: 14px;
           line-height: 1.5;
         }
+
+        .role-toggle {
+          display: flex;
+          flex-direction: column;
+          gap: var(--space-xs);
+        }
+
+        .role-toggle__label {
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.5;
+          color: var(--color-text-primary);
+        }
+
+        .role-toggle__group {
+          display: flex;
+          border: 1px solid var(--color-border-strong);
+          border-radius: var(--radius-input);
+          overflow: hidden;
+        }
+
+        .role-toggle__btn {
+          flex: 1;
+          padding: var(--space-sm) var(--space-md);
+          font-size: 14px;
+          font-weight: 500;
+          font-family: var(--family-base);
+          line-height: 1.5;
+          color: var(--color-text-secondary);
+          background-color: var(--color-surface);
+          border: none;
+          cursor: pointer;
+          transition: background-color 0.15s ease, color 0.15s ease;
+          outline: none;
+        }
+
+        .role-toggle__btn + .role-toggle__btn {
+          border-left: 1px solid var(--color-border-strong);
+        }
+
+        .role-toggle__btn:focus-visible {
+          outline: 2px solid var(--color-focus-ring);
+          outline-offset: -2px;
+        }
+
+        .role-toggle__btn--active {
+          background-color: var(--color-accent-primary);
+          color: var(--color-surface);
+        }
+
+        .role-toggle__btn:hover:not(.role-toggle__btn--active) {
+          background-color: var(--color-muted-surface);
+          color: var(--color-text-primary);
+        }
       `}</style>
 
       <div className="auth-branding" aria-hidden="true">
@@ -447,6 +515,30 @@ const LoginPage: React.FC = () => {
               {errors.form}
             </div>
           )}
+
+          <div className="role-toggle" role="group" aria-label="Sign in as">
+            <span className="role-toggle__label">Sign in as</span>
+            <div className="role-toggle__group">
+              <button
+                type="button"
+                className={`role-toggle__btn${values.role === 'user' ? ' role-toggle__btn--active' : ''}`}
+                aria-pressed={values.role === 'user'}
+                onClick={() => handleRoleChange('user')}
+                disabled={isSubmitting}
+              >
+                User
+              </button>
+              <button
+                type="button"
+                className={`role-toggle__btn${values.role === 'admin' ? ' role-toggle__btn--active' : ''}`}
+                aria-pressed={values.role === 'admin'}
+                onClick={() => handleRoleChange('admin')}
+                disabled={isSubmitting}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
 
           <div className="auth-card__field">
             <label htmlFor={emailId}>Email address</label>
